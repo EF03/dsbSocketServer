@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Client</title>
+    <link href="bootstrap.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+
+        #console {
+            height: 400px;
+            overflow: auto;
+        }
+
+        .username-msg {
+            color: orange;
+        }
+
+        .connect-msg {
+            color: green;
+        }
+
+        .disconnect-msg {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Chat Client</h1>
+<br/>
+
+<div id="console" class="well"></div>
+
+<!--<form class="well form-inline" onsubmit="return false;">-->
+<!--    <input id="msg" class="input-xlarge" type="text" placeholder="Type something..."/>-->
+<!--    <button type="button" onClick="sendMessage()" class="btn" id="send">Send</button>-->
+<!--    <button type="button" onClick="sendDisconnect()" class="btn">Disconnect</button>-->`
+<!--</form>-->
+
+<script src="js/socket.io-2.2.0.js"></script>
+<script src="js/moment-2.24.0.min.js"></script>
+<script src="js/jquery-3.3.1.min.js"></script>
+
+<script>
+
+    var info = {
+        token: sessionStorage.token,
+        where: "dsbFront",
+        roomId: '1_2'
+    };
+    var result = $.param(info);
+    // var result = info.serialize();
+    var socketObj = {
+        query: result,
+        autoConnect: false,
+        reconnection: false,
+        forceNew: true
+    };
+    // var socketUrl = wsu.resultSocketPath;
+    // var socket = io('http://127.0.0.1:9090',
+    var socketUrl = "http://192.168.7.92:9090/";
+    dsbSocket = io.connect(socketUrl, socketObj);
+    dsbSocket.on('receiveMsg', connectHandler());
+    dsbSocket.on('message', messageHandler);
+    dsbSocket.on('disconnect', disconnectHandler);
+    dsbSocket.on('connect', connectHandler);
+    if (!dsbSocket.connected) {
+        dsbSocket.open();
+    }
+
+    function receiveMsgHandler() {
+        console.log('receiveMsgHandler');
+        output('<span class="username-msg">' + 'receiveMsgHandler' + ':</span> ');
+    }
+
+    function messageHandler() {
+        console.log('messageHandler');
+        output('<span class="username-msg">' + 'messageHandler' + ':</span> ');
+    }
+
+    function disconnectHandler() {
+        console.log('disconnectHandler');
+        output('<span class="username-msg">' + 'disconnectHandler' + ':</span> ');
+    }
+
+    function connectHandler() {
+        console.log('connectHandler');
+        output('<span class="username-msg">' + 'connectHandler' + ':</span> ');
+    }
+
+    // var userName = 'user' + Math.floor((Math.random() * 1000) + 1);
+    // // var socket = io('http://localhost:9092/chat?token=abc123', {
+    //
+    // var socket = io('http://192.168.7.92:9090/sendMsg?token=abc123',
+    //     socketObj
+    //     // {
+    //     //     transports: ['polling', 'websocket']
+    //     // }
+    // );
+    // socket.on('onConnect', function () {
+    //     output('<span class="connect-msg">The client has connected with the server. Username: ' + userName + '</span>');
+    // });
+    // // socket.on('chat', function (data) {
+    // socket.on('receiveMsg', function (data) {
+    //     console.log('Received message', data);
+    //     output('<span class="username-msg">' + '系統傳出' + ':</span> ' + JSON.stringify(data));
+    // });
+    // socket.on('disconnect', function () {
+    //     output('<span class="disconnect-msg">The client has disconnected!</span>');
+    // });
+    // socket.on('reconnect_attempt', (attempts) => {
+    //     console.log('Try to reconnect at ' + attempts + ' attempt(s).');
+    // });
+    //
+    // function sendDisconnect() {
+    //     socket.disconnect();
+    // }
+
+    // function sendMessage() {
+    //     var $msg = $('#msg');
+    //     var message = $msg.val();
+    //     $msg.val('');
+    //     var jsonObject = {userName: userName, message: message, actionTime: new Date()};
+    //     socket.emit('chat', jsonObject);
+    // }
+
+    function output(message) {
+        var currentTime = "<span class='time'>" + moment().format('HH:mm:ss.SSS') + "</span>";
+        var element = $("<div>" + currentTime + " " + message + "</div>");
+        $('#console').prepend(element);
+    }
+
+    $(document).keydown(function (e) {
+        if (e.keyCode == 13) {
+            $('#send').click();
+        }
+    });
+</script>
+</body>
+</html>

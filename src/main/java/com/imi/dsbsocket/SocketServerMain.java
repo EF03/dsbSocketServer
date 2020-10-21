@@ -10,6 +10,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.annotation.PreDestroy;
@@ -21,6 +23,8 @@ import javax.annotation.PreDestroy;
 @SpringBootApplication
 @EnableTransactionManagement
 @EnableJpaAuditing
+@EnableAsync
+@EnableScheduling
 @PropertySource({"classpath:dsbSocketServer.properties", "classpath:redis.properties"})
 //@Order(1)
 public class SocketServerMain implements CommandLineRunner {

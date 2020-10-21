@@ -1,19 +1,24 @@
 package com.imi.dsbsocket.socket;
 
+
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.corundumstudio.socketio.*;
 import com.corundumstudio.socketio.annotation.OnConnect;
 import com.corundumstudio.socketio.annotation.OnDisconnect;
 import com.corundumstudio.socketio.annotation.OnEvent;
+
 import com.corundumstudio.socketio.protocol.Packet;
 import com.corundumstudio.socketio.protocol.PacketType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.imi.dsbsocket.dto.SendCmdDto;
 import com.imi.dsbsocket.dto.SendMsgDto;
 import com.imi.dsbsocket.dto.WsSocketDTO;
+
 import com.imi.dsbsocket.enums.DsbErrorCodeMsg;
 import com.imi.dsbsocket.service.*;
+
 import com.imi.dsbsocket.util.ExceptionUtil;
 import com.imi.dsbsocket.util.JwtUtils;
 import org.slf4j.Logger;
@@ -22,18 +27,37 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.Date;
-import java.util.List;
+import javax.websocket.Session;
+import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.LongAdder;
 
 @Component
-public class SocketHandler {
+public class SocketHandler<session> {
 
     /**
      * log
      */
     private Logger log = LoggerFactory.getLogger(SocketHandler.class);
+
+    /**
+     * 静态变量，用来记录当前在线连接数。应该把它设计成线程安全的。
+     */
+    private static LongAdder onlineCount;
+
+    /**
+     * 与某个客户端的连接会话，需要通过它来给客户端发送数据
+     */
+    private SocketIOClient thisClient;
+
+    /**
+     * concurrent包的线程安全Set，用来存放每个客户端对应的MyWebSocket对象。
+     * 在外部可以获取此连接的所有websocket对象，并能对其触发消息发送功能，我们的定时发送核心功能的实现在与此变量
+     */
+//    private static CopyOnWriteArraySet<SocketHandler> webSocketSet = new CopyOnWriteArraySet<>();
+    private static CopyOnWriteArraySet<SocketIOClient> webSocketSet = new CopyOnWriteArraySet<>();
 
     /**
      * socketIOServer
@@ -59,11 +83,12 @@ public class SocketHandler {
         this.dsbSocketDomainService = dsbSocketDomainService;
     }
 
-    private void updateConnCount(){
+    private void updateConnCount() {
         int onLineConnCount = socketIOServer.getAllClients().size();
         log.info("online count(包含後台):" + onLineConnCount);
         dsbSocketDomainService.updateOneBySelf(onLineConnCount);
     }
+
     //当客户端发起连接时调用
     @OnConnect
     @Transactional
@@ -74,6 +99,10 @@ public class SocketHandler {
             String token = handshakeData.getSingleUrlParam("token");
             String where = handshakeData.getSingleUrlParam("where");
             String roomId = handshakeData.getSingleUrlParam("roomId");
+
+            thisClient = client;
+            onlineCount.increment();    //在线数加1
+            webSocketSet.add(client);     //加入set中
 
             String realIp = client.getRemoteAddress().toString();
             int one = client.getRemoteAddress().toString().lastIndexOf(":");
@@ -153,9 +182,9 @@ public class SocketHandler {
             DecodedJWT jwt = JwtUtils.verifyToken(sendMsgDto.getToken());
             if (jwt != null) {
                 Map<String, Object> jwtTokenMap = JwtUtils.getPayLoadDataRtMap(jwt);
-                String name=jwtTokenMap.get("name").toString(); //取出token的名字
+                String name = jwtTokenMap.get("name").toString(); //取出token的名字
                 String roomId = sendMsgDto.getRoomId();
-                long timeStamp=new Date().getTime(); //取得當前時間時間戳
+                long timeStamp = System.currentTimeMillis(); //取得當前時間時間戳
                 sendMsgDto.setDate(timeStamp);
                 sendMsgDto.setToken(""); //送出聊天訊息前清空token
                 sendMsgDto.setName(name);
@@ -165,18 +194,17 @@ public class SocketHandler {
                 });
 
                 //redis推播事件
-                Packet packet = new Packet(PacketType.MESSAGE);
-                ObjectNode packetJson = objectMapper.createObjectNode();
-                packetJson.put("cmd", "sendMsg");
-                packetJson.put("message", sendMsgDto.getMessage());
-                packetJson.put("roomId", sendMsgDto.getRoomId());
-                packetJson.put("token", sendMsgDto.getToken());
-                packetJson.put("isImageMessage", sendMsgDto.getIsImageMessage());
-                packetJson.put("date", sendMsgDto.getDate());
-                packetJson.put("role", sendMsgDto.getRole());
-                packetJson.put("name", sendMsgDto.getName());
-                packet.setData(packetJson);
-
+//                Packet packet = new Packet(PacketType.MESSAGE);
+//                ObjectNode packetJson = objectMapper.createObjectNode();
+//                packetJson.put("cmd", "sendMsg");
+//                packetJson.put("message", sendMsgDto.getMessage());
+//                packetJson.put("roomId", sendMsgDto.getRoomId());
+//                packetJson.put("token", sendMsgDto.getToken());
+//                packetJson.put("isImageMessage", sendMsgDto.getIsImageMessage());
+//                packetJson.put("date", sendMsgDto.getDate());
+//                packetJson.put("role", sendMsgDto.getRole());
+//                packetJson.put("name", sendMsgDto.getName());
+//                packet.setData(packetJson);
 //                socketIOServer.getConfiguration().getStoreFactory().pubSubStore().publish(PubSubType.DISPATCH,
 //                        new DispatchMessage(roomId, packet, ""));
                 dsbSocketMsgService.insertDsbSocketMsgData(sendMsgDto, roomId); //儲存聊天訊息
@@ -188,6 +216,26 @@ public class SocketHandler {
             log.error(ExceptionUtil.getStackTrace(e));
         }
     }
+
+    @OnEvent("sendRoom")
+    public void sendRoom(SocketIOClient client, String message) throws IOException {
+        Packet packet = new Packet(PacketType.MESSAGE);
+        ObjectNode packetJson = objectMapper.createObjectNode();
+//        SendCmdDto sendCmdDto = wsSocketDTO.getData();
+
+        HandshakeData handshakeData = client.getHandshakeData();
+        String token = handshakeData.getSingleUrlParam("token");
+//        String where = handshakeData.getSingleUrlParam("where");
+        String roomId = handshakeData.getSingleUrlParam("roomId");
+
+        packetJson.put("cmd", "sendRoom");
+        packetJson.put("message", message);
+        packetJson.put("roomId", roomId);
+        packetJson.put("token", token);
+        packet.setData(packetJson);
+        thisClient.send(packet);
+    }
+
 
     private void getStrategy(String cmdName, WsSocketDTO cmdParams) throws Exception {
         getCmdExecute(DsbWsService.cmd.valueOf(cmdName), cmdParams);
@@ -252,4 +300,14 @@ public class SocketHandler {
         }
     }
 
+    //    public static CopyOnWriteArraySet<SocketHandler> getWebSocketSet() {
+//        return webSocketSet;
+//    }
+    public static CopyOnWriteArraySet<SocketIOClient> getWebSocketSet() {
+        return webSocketSet;
+    }
+
+    public SocketIOClient getThisClient() {
+        return thisClient;
+    }
 }
