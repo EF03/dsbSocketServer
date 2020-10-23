@@ -1,13 +1,11 @@
 package com.imi.dsbsocket.service;
 
-import com.imi.dsbsocket.entity.CardTable;
+import com.imi.dsbsocket.entity.model.CardTable;
 import com.imi.dsbsocket.task.BaccaratAssignmentTask;
 import com.imi.dsbsocket.util.BaccaratUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Ron
@@ -42,10 +40,11 @@ public class BaccaratAsyncService {
 
     /**
      * 倒數 轉換狀態
+     *
      * @return
      */
     @Async("baccaratExecutor")
-    public CompletableFuture<CardTable> countdown(CardTable cardTable) {
+    public void countdown(CardTable cardTable) {
         if (cardTable != null) {
             int countSeconds = cardTable.getCountSeconds();
             if (countSeconds == 0) {
@@ -54,9 +53,15 @@ public class BaccaratAsyncService {
                 cardTable.setCountSeconds(countSeconds - 1);
             }
             BaccaratAssignmentTask.offerBaccaratInQueue(cardTable);
+
+            int roomId = cardTable.getRoomId();
+            int tableId = cardTable.getTableId();
+            String key = roomId + "_" + tableId;
+            BaccaratAssignmentTask.putToRoomsMap(key, cardTable);
         }
 
+//        BaccaratAssignmentTask.roomsMap.put(key, cardTable);
 //        log.info("<< countdown BaccaratAsyncService threadName : {} BaccaratAsyncService cardTable : {}", Thread.currentThread().getName(), BaccaratAssignmentTask.getRooms());
-        return CompletableFuture.completedFuture(cardTable);
+//        return CompletableFuture.completedFuture(cardTable);
     }
 }

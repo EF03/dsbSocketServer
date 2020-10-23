@@ -45,9 +45,18 @@
 <script src="js/jquery-3.3.1.min.js"></script>
 
 <script>
+    var rand = function () {
+        return Math.random().toString(36).substr(2); // remove `0.`
+    };
 
+    var token = function () {
+        return rand() + rand(); // to make it longer
+    };
+
+    var tokenStr = token();
     var info = {
-        token: sessionStorage.token,
+        // token: sessionStorage.token,
+        token: tokenStr,
         where: "dsbFront",
         roomId: '1_2'
     };
@@ -63,7 +72,7 @@
     // var socket = io('http://127.0.0.1:9090',
     var socketUrl = "http://192.168.7.92:9090/";
     dsbSocket = io.connect(socketUrl, socketObj);
-    dsbSocket.on('receiveMsg', connectHandler());
+    dsbSocket.on('sendRoom', sendRoom);
     dsbSocket.on('message', messageHandler);
     dsbSocket.on('disconnect', disconnectHandler);
     dsbSocket.on('connect', connectHandler);
@@ -71,9 +80,9 @@
         dsbSocket.open();
     }
 
-    function receiveMsgHandler() {
-        console.log('receiveMsgHandler');
-        output('<span class="username-msg">' + 'receiveMsgHandler' + ':</span> ');
+    function sendRoom(data) {
+        console.log('sendRoom');
+        output('<span class="username-msg">' + JSON.stringify(data) + ':</span> ');
     }
 
     function messageHandler() {
@@ -138,6 +147,7 @@
             $('#send').click();
         }
     });
+    // "bnh5yzdirjinqaorq0ox1tf383nb3xr"
 </script>
 </body>
 </html>

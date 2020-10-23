@@ -1,8 +1,8 @@
 package com.imi.dsbsocket.service;
 
 import com.imi.dsbsocket.dto.SendMsgDto;
-import com.imi.dsbsocket.entity.DsbSocketMsg;
-import com.imi.dsbsocket.entity.DsbSocketRoom;
+import com.imi.dsbsocket.entity.dsb.DsbSocketMsg;
+import com.imi.dsbsocket.entity.dsb.DsbSocketRoom;
 import com.imi.dsbsocket.repository.DsbSocketMsgRepository;
 import com.imi.dsbsocket.socket.SocketHandler;
 import org.slf4j.Logger;

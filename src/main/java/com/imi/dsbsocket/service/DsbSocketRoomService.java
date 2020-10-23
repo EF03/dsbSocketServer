@@ -1,6 +1,6 @@
 package com.imi.dsbsocket.service;
 
-import com.imi.dsbsocket.entity.DsbSocketRoom;
+import com.imi.dsbsocket.entity.dsb.DsbSocketRoom;
 import com.imi.dsbsocket.repository.DsbSocketRoomRepository;
 import org.springframework.stereotype.Service;
 

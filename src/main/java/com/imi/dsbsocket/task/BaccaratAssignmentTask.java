@@ -2,9 +2,9 @@ package com.imi.dsbsocket.task;
 
 
 import com.corundumstudio.socketio.SocketIOClient;
-import com.imi.dsbsocket.entity.base.Card;
-import com.imi.dsbsocket.entity.CardTable;
+import com.imi.dsbsocket.entity.model.CardTable;
 import com.imi.dsbsocket.enums.BaccaratStatus;
+import com.imi.dsbsocket.enums.PokerCard;
 import com.imi.dsbsocket.service.BaccaratAsyncService;
 import com.imi.dsbsocket.socket.SocketHandler;
 import com.imi.dsbsocket.util.BaccaratUtil;
@@ -19,10 +19,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.*;
+
+import static com.imi.dsbsocket.util.BaccaratUtil.*;
 
 
 /**
@@ -57,23 +59,23 @@ public class BaccaratAssignmentTask {
     /**
      * 桌子數
      */
-    public static final int SENIOR_TABLE_NUM = 5;
-    public static final int BASIC_TABLE_NUM = 5;
-    public static final int TOTAL_TABLE_NUM = 10;
+    public static final int SENIOR_TABLE_NUM = 10;
+    public static final int BASIC_TABLE_NUM = 10;
+    public static final int TOTAL_TABLE_NUM = 20;
     public static int[] tableNums;
 
     /**
      * thread number
      */
-    public static final int THREAD_NUMBER = 5;
-
-    @Autowired
-    BaccaratAsyncService baccaratAsyncService;
+    public static final int THREAD_NUMBER = 2;
 
     /**
      * fixedRate：設定定時任務執行的固定間隔，該值為當前任務啟動時間與下次任務啟動時間之差；
      * fixedDelay：設定定時任務執行的固定間隔，該值為當前任務結束時間與下次任務啟動時間之差；
      */
+
+    @Autowired
+    BaccaratAsyncService baccaratAsyncService;
 
     @Async
     @Scheduled(fixedRate = 1000)
@@ -91,18 +93,19 @@ public class BaccaratAssignmentTask {
                 }
                 cardTable = BaccaratAssignmentTask.pollBaccaratFromQueue();
             }
-            CompletableFuture<CardTable> tableCompletableFuture = baccaratAsyncService.countdown(cardTable);
+            baccaratAsyncService.countdown(cardTable);
+//            CompletableFuture<CardTable> tableCompletableFuture = baccaratAsyncService.countdown(cardTable);
             // 等待 倒數結果
-            while (true) {
-                if (tableCompletableFuture.isDone()) {
-                    break;
-                }
-            }
-            CardTable result = tableCompletableFuture.get();
-            int roomId = result.getRoomId();
-            int tableId = result.getTableId();
-            String key = roomId + "_" + tableId;
-            roomsMap.put(key, result);
+//            while (true) {
+//                if (tableCompletableFuture.isDone()) {
+//                    break;
+//                }
+//            }
+//            CardTable result = tableCompletableFuture.get();
+//            int roomId = result.getRoomId();
+//            int tableId = result.getTableId();
+//            String key = roomId + "_" + tableId;
+//            roomsMap.put(key, result);
         }
     }
 
@@ -123,14 +126,21 @@ public class BaccaratAssignmentTask {
 //        CopyOnWriteArraySet<MyWebSocket> webSocketSet = MyWebSocket.getWebSocketSet();
         CopyOnWriteArraySet<SocketIOClient> webSocketSet = SocketHandler.getWebSocketSet();
 //        SocketHandler.message()
-        int i = 0;
+//        int i = 0;
 //        log.info("  定时发送  " + new Date().toLocaleString());
+
         webSocketSet.forEach(c -> {
-            try {
-                socketHandler.sendRoom(c, "  定时发送  " + new Date().toLocaleString());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            // 一次玩家只能在一个房间 要做踢出机制 room
+            Set<String> rooms = c.getAllRooms();
+            rooms.forEach(e -> {
+                try {
+                    if (!e.isEmpty()) {
+                        socketHandler.sendRoom(c, roomsMap.get(e));
+                    }
+                } catch (IOException ex) {
+                    log.error(ex.getMessage());
+                }
+            });
         });
     }
 
@@ -157,6 +167,10 @@ public class BaccaratAssignmentTask {
         return roomsMap;
     }
 
+    public static void putToRoomsMap(String roomId,CardTable cardTable){
+        roomsMap.put(roomId, cardTable);
+    }
+
     /**
      * 初始化 所有房間所有牌桌 todo 取得個別桌子參數( 時間 賠率 金額 )
      */
@@ -169,11 +183,11 @@ public class BaccaratAssignmentTask {
         for (int i = 0; i < tableNums.length; i++) {
             for (int j = 0; j < tableNums[i]; j++) {
                 CardTable cardTable = new CardTable();
-                Stack<Card> cards = BaccaratUtil.shufflingCard();
-                cardTable.setSendNum(BaccaratUtil.PACK_NUM * BaccaratUtil.CARDS_NUM - cards.size());
+                Stack<PokerCard> cards = PokerCard.shufflingCards(BaccaratUtil.PACK_NUM, BaccaratUtil.HAS_JOKER, BaccaratUtil.HAS_CUT, BaccaratUtil.HAS_SHUFFLE);
+                cardTable.setSendNum(PACK_NUM * BaccaratUtil.CARDS_NUM - cards.size());
                 cardTable.setCardStack(cards);
                 cardTable.setCountSeconds(baccaratTimes[4]);
-                cardTable.setStatus(BaccaratStatus.SHUFFLING_TIME);
+                cardTable.setStatus(BaccaratStatus.SHUFFLING_TIME.getBaccaratCode());
                 cardTable.setRoomId(i + 1);
                 cardTable.setTableId(j + 1);
 

@@ -1,6 +1,6 @@
 package com.imi.dsbsocket.repository;
 
-import com.imi.dsbsocket.entity.DsbOrder;
+import com.imi.dsbsocket.entity.dsb.DsbOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

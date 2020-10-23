@@ -1,8 +1,8 @@
 package com.imi.dsbsocket.util;
 
-import com.imi.dsbsocket.entity.base.Card;
-import com.imi.dsbsocket.entity.CardTable;
+import com.imi.dsbsocket.entity.model.CardTable;
 import com.imi.dsbsocket.enums.BaccaratStatus;
+import com.imi.dsbsocket.enums.PokerCard;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -16,6 +16,9 @@ import java.util.*;
 @Slf4j
 public class BaccaratUtil {
     public final static int PACK_NUM = 8;
+    public final static boolean HAS_JOKER = false;
+    public final static boolean HAS_CUT = true;
+    public final static boolean HAS_SHUFFLE = true;
     public final static int CARDS_NUM = 52;
     public final static int LIMIT_CARDS = 7;
 
@@ -25,43 +28,46 @@ public class BaccaratUtil {
      * 状态 1-下注中/2-开牌中/3-派奖中/4-准备中/5-洗牌中
      */
     public static void switchStatusAndDo(CardTable cardTable) {
-        switch (cardTable.getStatus().getBaccaratCode()) {
+        switch (cardTable.getStatus()) {
             case 1:
                 // todo 交易邏輯
-                cardTable.setStatus(BaccaratStatus.OPENING_TIME);
+                cardTable.setStatus(BaccaratStatus.OPENING_TIME.getBaccaratCode());
                 cardTable.setCountSeconds(cardTable.getOpeningTime());
                 break;
             case 2:
                 // todo 傳給 各個使用者 結果
-                cardTable.setStatus(BaccaratStatus.AWARDING_TIME);
+                cardTable.setStatus(BaccaratStatus.AWARDING_TIME.getBaccaratCode());
                 cardTable.setCountSeconds(cardTable.getAwardingTime());
                 break;
             case 3:
-                // todo 垃圾時間
-                cardTable.setStatus(BaccaratStatus.PREPARING_TIME);
+                // todo 垃圾時間 更換 gamNum
+                cardTable.setStatus(BaccaratStatus.PREPARING_TIME.getBaccaratCode());
                 cardTable.setCountSeconds(cardTable.getPreparingTime());
+                cardTable.setPlayerCards(null);
+                cardTable.setBankerCards(null);
                 break;
             case 4:
                 if (cardTable.getSendNum() < BaccaratUtil.LIMIT_CARDS) {
                     // todo 洗牌
-
-                    Stack<Card> newCards = shufflingCard();
+                    Stack<PokerCard> newCards = PokerCard.shufflingCards(PACK_NUM, HAS_JOKER, HAS_CUT, HAS_SHUFFLE);
                     cardTable.setCardStack(newCards);
                     cardTable.setSendNum((PACK_NUM * CARDS_NUM) - newCards.size());
-                    cardTable.setStatus(BaccaratStatus.SHUFFLING_TIME);
+                    cardTable.setStatus(BaccaratStatus.SHUFFLING_TIME.getBaccaratCode());
                     cardTable.setCountSeconds(cardTable.getShufflingTime());
                 } else {
                     // todo 傳出發牌結果
                     playBaccarat(cardTable);
-                    cardTable.setStatus(BaccaratStatus.BETTING_TIME);
+                    cardTable.setStatus(BaccaratStatus.BETTING_TIME.getBaccaratCode());
                     cardTable.setCountSeconds(cardTable.getBettingTime());
+                    cardTable.setSendNum((PACK_NUM * CARDS_NUM) - cardTable.getCardStack().size());
                 }
                 break;
             case 5:
                 // todo 傳出發牌結果
                 playBaccarat(cardTable);
-                cardTable.setStatus(BaccaratStatus.BETTING_TIME);
+                cardTable.setStatus(BaccaratStatus.BETTING_TIME.getBaccaratCode());
                 cardTable.setCountSeconds(cardTable.getBettingTime());
+                cardTable.setSendNum((PACK_NUM * CARDS_NUM) - cardTable.getCardStack().size());
                 break;
             default:
                 break;
@@ -72,89 +78,89 @@ public class BaccaratUtil {
     /**
      * 初始 洗牌
      */
-    public static Stack<Card> shufflingCard() {
-        // 初始牌
-        List<Card> cards = buildPackOfCards(CARDS_NUM, PACK_NUM);
-        // 切牌
-        cutTheDeck(cards);
-        //洗牌
-        shuffle(cards);
-        Stack<Card> cardStack = new Stack<>();
-        cardStack.addAll(cards);
-        return cardStack;
-    }
+//    public static Stack<Card> shufflingCard() {
+//        // 初始牌
+//        List<Card> cards = buildPackOfCards(CARDS_NUM, PACK_NUM);
+//        // 切牌
+//        cutTheDeck(cards);
+//        //洗牌
+//        shuffle(cards);
+//        Stack<Card> cardStack = new Stack<>();
+//        cardStack.addAll(cards);
+//        return cardStack;
+//    }
 
-    private static List<Card> buildPackOfCards(int cardNum, int packNum) {
-        List<Card> cards = new LinkedList<>();
-        for (int i = 0; i < cardNum * packNum; i++) {
-            cards.add(new Card(suit(i + 1), symbol(i + 1)));
-        }
-        return cards;
-    }
+//    private static List<Card> buildPackOfCards(int cardNum, int packNum) {
+//        List<Card> cards = new LinkedList<>();
+//        for (int i = 0; i < cardNum * packNum; i++) {
+//            cards.add(new Card(suit(i + 1), symbol(i + 1)));
+//        }
+//        return cards;
+//    }
 
     /**
      * 切牌
      */
-    private static void cutTheDeck(List<Card> cards) {
-        Random random = new Random();
-        // 只切一半以內
-        int cutNum = random.nextInt(cards.size() / 2);
-        cards.subList(0, cutNum).clear();
-    }
+//    private static void cutTheDeck(List<Card> cards) {
+//        Random random = new Random();
+//        // 只切一半以內
+//        int cutNum = random.nextInt(cards.size() / 2);
+//        cards.subList(0, cutNum).clear();
+//    }
 
-    /**
-     * 洗牌
-     */
-    private static void shuffle(List<Card> cards) {
-        for (int i = 0; i < cards.size(); i++) {
-            Collections.swap(cards, i,
-                    (int) (Math.random() * cards.size() - 1));
-        }
-    }
+//    /**
+//     * 洗牌
+//     */
+//    private static void shuffle(List<Card> cards) {
+//        for (int i = 0; i < cards.size(); i++) {
+//            Collections.swap(cards, i,
+//                    (int) (Math.random() * cards.size() - 1));
+//        }
+//    }
 
-    private static int symbol(int number) {
-//        int remain = number % 13;
-//        return (char) (remain + 65);
-        return ((number % 13) + 1);
-    }
+//    private static int symbol(int number) {
+////        int remain = number % 13;
+////        return (char) (remain + 65);
+//        return ((number % 13) + 1);
+//    }
 
-    private static char suit(int number) {
-        switch (((number - 1) / 13) % 4) {
-            // ♥
-            case 0:
-                return '\u2665';
-            //♦
-            case 1:
-                return '\u2666';
-            // ♣
-            case 2:
-                return '\u2663';
-            //♠
-            default:
-                return '\u2660';
-        }
-    }
+//    private static char suit(int number) {
+//        switch (((number - 1) / 13) % 4) {
+//            // ♥
+//            case 0:
+//                return '\u2665';
+//            //♦
+//            case 1:
+//                return '\u2666';
+//            // ♣
+//            case 2:
+//                return '\u2663';
+//            //♠
+//            default:
+//                return '\u2660';
+//        }
+//    }
 
 
     /**
      * 傳出發牌結果
-     *
-     * @param cardTable
+     * <p>
+     * //     * @param cardTable
      */
     private static void playBaccarat(CardTable cardTable) {
-        Stack<Card> cardStack = cardTable.getCardStack();
+        Stack<PokerCard> cardStack = cardTable.getCardStack();
         List<Integer> result = new ArrayList<>(11);
 
         if (cardStack.size() < 7) {
             cardStack.clear();
             // 初始牌
-            cardStack = shufflingCard();
+            cardStack = PokerCard.shufflingCards(PACK_NUM, HAS_JOKER, HAS_CUT, HAS_SHUFFLE);
         }
 
         // 初始发排
-        Map<String, List<Card>> firstDistributeMap = firstDistribute(cardStack);
-        List<Card> player = firstDistributeMap.get("player");
-        List<Card> banker = firstDistributeMap.get("banker");
+        Map<String, List<PokerCard>> firstDistributeMap = firstDistribute(cardStack);
+        List<PokerCard> player = firstDistributeMap.get("player");
+        List<PokerCard> banker = firstDistributeMap.get("banker");
 
         baccaratDraw(player, banker, cardStack);
 
@@ -189,15 +195,15 @@ public class BaccaratUtil {
         }
 
         // 改變 桌子的發牌結果
-        cardTable.setPlayerCards(player);
-        cardTable.setBankerCards(banker);
+        cardTable.setPlayerCards(PokerCard.switchPokerCardToId(player));
+        cardTable.setBankerCards(PokerCard.switchPokerCardToId(banker));
         cardTable.setResult(result);
     }
 
-    private static Map<String, List<Card>> firstDistribute(Stack<Card> cardStack) {
-        Map<String, List<Card>> result = new HashMap<>(4);
-        List<Card> odd = new ArrayList<>();
-        List<Card> even = new ArrayList<>();
+    private static Map<String, List<PokerCard>> firstDistribute(Stack<PokerCard> cardStack) {
+        Map<String, List<PokerCard>> result = new HashMap<>(2);
+        List<PokerCard> odd = new ArrayList<>();
+        List<PokerCard> even = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
             if (i % 2 == 0) {
                 odd.add(cardStack.pop());
@@ -211,12 +217,12 @@ public class BaccaratUtil {
     }
 
 
-    private static void baccaratDraw(List<Card> odd, List<Card> even, Stack<Card> cardStack) {
+    private static void baccaratDraw(List<PokerCard> odd, List<PokerCard> even, Stack<PokerCard> cardStack) {
         // 莊閒 累計
         int tempOddNum = 0;
         int sumOdd = getCardsSum(odd);
         int sumEven = getCardsSum(even);
-        Card oddThird;
+        PokerCard oddThird;
 //        System.out.println("sumOdd = " + sumOdd);
 //        System.out.println("sumEven = " + sumEven);
         // 天生贏家
@@ -229,7 +235,7 @@ public class BaccaratUtil {
             odd.add(oddThird);
 
 //            tempOddNum = getSymbolNum(oddThird.getSymbol());
-            tempOddNum = (oddThird.getSymbol());
+            tempOddNum = (oddThird.getValue());
             switch (sumEven) {
                 case 0:
                 case 1:
@@ -277,9 +283,9 @@ public class BaccaratUtil {
     }
 
 
-    private static int getCardsSum(List<Card> cards) {
+    private static int getCardsSum(List<PokerCard> cards) {
         return cards.stream()
-                .mapToInt(Card::getSymbol)
+                .mapToInt(PokerCard::getValue)
 //                .map(e -> e - 64)
                 .filter(e -> e < 10)
                 .sum() % 10;
@@ -290,11 +296,11 @@ public class BaccaratUtil {
         return (9 - sum);
     }
 
-    private static boolean isPair(List<Card> cards) {
-        return cards.get(0).getSymbol() == cards.get(1).getSymbol();
+    private static boolean isPair(List<PokerCard> cards) {
+        return cards.get(0).getValue() == cards.get(1).getValue();
     }
 
-    private static boolean isBig(List<Card> odd, List<Card> even) {
+    private static boolean isBig(List<PokerCard> odd, List<PokerCard> even) {
         return odd.size() + even.size() > 4;
     }
 

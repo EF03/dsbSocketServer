@@ -1,6 +1,6 @@
 package com.imi.dsbsocket.service;
 
-import com.imi.dsbsocket.entity.DsbSocketDomain;
+import com.imi.dsbsocket.entity.dsb.DsbSocketDomain;
 import com.imi.dsbsocket.repository.DsbSocketDomainRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

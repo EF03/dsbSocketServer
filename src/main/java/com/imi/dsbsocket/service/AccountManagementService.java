@@ -1,6 +1,6 @@
 package com.imi.dsbsocket.service;
 
-import com.imi.dsbsocket.entity.DsbPayeeOnline;
+import com.imi.dsbsocket.entity.dsb.DsbPayeeOnline;
 import com.imi.dsbsocket.repository.DsbPayeeOnlineRepository;
 import org.springframework.stereotype.Service;
 

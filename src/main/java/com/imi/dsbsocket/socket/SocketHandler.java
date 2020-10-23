@@ -7,15 +7,13 @@ import com.corundumstudio.socketio.annotation.OnConnect;
 import com.corundumstudio.socketio.annotation.OnDisconnect;
 import com.corundumstudio.socketio.annotation.OnEvent;
 
-import com.corundumstudio.socketio.protocol.Packet;
-import com.corundumstudio.socketio.protocol.PacketType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.imi.dsbsocket.dto.SendCmdDto;
 import com.imi.dsbsocket.dto.SendMsgDto;
 import com.imi.dsbsocket.dto.WsSocketDTO;
 
+import com.imi.dsbsocket.entity.model.CardTable;
 import com.imi.dsbsocket.enums.DsbErrorCodeMsg;
 import com.imi.dsbsocket.service.*;
 
@@ -27,10 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.websocket.Session;
 import java.io.IOException;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -43,7 +39,9 @@ public class SocketHandler<session> {
     private Logger log = LoggerFactory.getLogger(SocketHandler.class);
 
     /**
-     * 静态变量，用来记录当前在线连接数。应该把它设计成线程安全的。
+     * 静态变量，用来记录当前在线连接数。应该把它设计成线程安全的。 房间在线人数
+     * <p>
+     * socketIOServer.getAllClients().size()
      */
     private static LongAdder onlineCount;
 
@@ -101,30 +99,30 @@ public class SocketHandler<session> {
             String roomId = handshakeData.getSingleUrlParam("roomId");
 
             thisClient = client;
-            onlineCount.increment();    //在线数加1
+//            onlineCount.increment();    //在线数加1
             webSocketSet.add(client);     //加入set中
 
             String realIp = client.getRemoteAddress().toString();
             int one = client.getRemoteAddress().toString().lastIndexOf(":");
             realIp = realIp.substring(1, one);
             log.info("onConnect 真實ip:" + realIp);
-            DecodedJWT jwt = JwtUtils.verifyToken(token);
+//            DecodedJWT jwt = JwtUtils.verifyToken(token);
 
-            if (jwt != null) {
-                Map<String, Object> jwtMap = JwtUtils.getPayLoadDataRtMap(jwt);
-                updateConnCount();
-                //連接成功socket server會自動傳connect事件到dsbOrder、dsbFront、dsbAdmin的webSocketUtil.js的connectHandler
-                log.info("sessionId:" + client.getSessionId().toString() + " where:" + where + " 連線成功 !!");
-                if ("dsbFront".equals(where)) {
-                    accountManagementService.updateOnlineSessionId(token, client.getSessionId().toString());
-                }
-                if (null != roomId && !"".equals(roomId)) {//不為空值才送
-                    client.joinRoom(roomId);
-                }
-            } else {
-                //sendErrorMsg(client, DsbErrorCodeMsg.GET_TOKEN_FAILE.getErrorMsg(), DsbErrorCodeMsg.GET_TOKEN_FAILE.getErrorCode());
-                log.error("JWT is null .");
+//            if (jwt != null) {
+//                Map<String, Object> jwtMap = JwtUtils.getPayLoadDataRtMap(jwt);
+            updateConnCount();
+            //連接成功socket server會自動傳connect事件到dsbOrder、dsbFront、dsbAdmin的webSocketUtil.js的connectHandler
+            log.info("sessionId:" + client.getSessionId().toString() + " where:" + where + " 連線成功 !!");
+            if ("dsbFront".equals(where)) {
+                accountManagementService.updateOnlineSessionId(token, client.getSessionId().toString());
             }
+            if (null != roomId && !"".equals(roomId)) {//不為空值才送
+                client.joinRoom(roomId);
+            }
+//            } else {
+//                //sendErrorMsg(client, DsbErrorCodeMsg.GET_TOKEN_FAILE.getErrorMsg(), DsbErrorCodeMsg.GET_TOKEN_FAILE.getErrorCode());
+//                log.error("JWT is null .");
+//            }
         } catch (Exception e) {
             log.error(ExceptionUtil.getStackTrace(e));
         }
@@ -218,22 +216,30 @@ public class SocketHandler<session> {
     }
 
     @OnEvent("sendRoom")
-    public void sendRoom(SocketIOClient client, String message) throws IOException {
-        Packet packet = new Packet(PacketType.MESSAGE);
-        ObjectNode packetJson = objectMapper.createObjectNode();
+    public void sendRoom(SocketIOClient client, CardTable cardTable) throws IOException {
+        if (cardTable == null) {
+            return;
+        }
+//        Packet packet = new Packet(PacketType.MESSAGE);
+//        ObjectNode packetJson = objectMapper.createObjectNode();
 //        SendCmdDto sendCmdDto = wsSocketDTO.getData();
 
         HandshakeData handshakeData = client.getHandshakeData();
-        String token = handshakeData.getSingleUrlParam("token");
+//        String token = handshakeData.getSingleUrlParam("token");
 //        String where = handshakeData.getSingleUrlParam("where");
         String roomId = handshakeData.getSingleUrlParam("roomId");
 
-        packetJson.put("cmd", "sendRoom");
-        packetJson.put("message", message);
-        packetJson.put("roomId", roomId);
-        packetJson.put("token", token);
-        packet.setData(packetJson);
-        thisClient.send(packet);
+//        packetJson.put("cmd", "sendRoom");
+//        packetJson.put("message", message);
+//        packetJson.put("roomId", roomId);
+//        packetJson.put("token", token);
+//        packet.setData(packetJson);
+//        thisClient.send(packet);
+
+        BroadcastOperations roomOperations = socketIOServer.getRoomOperations(roomId);
+        roomOperations.getClients().forEach(socketIOClient -> {
+            socketIOClient.sendEvent("sendRoom", cardTable.toString()); //對應dsbFront webSocketUtil的receiveMsg註冊事件
+        });
     }
 
 
